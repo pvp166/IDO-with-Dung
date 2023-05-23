@@ -1,0 +1,63 @@
+stages:
+ - build_dapp
+ - package_image
+ - deploy_dev
+ - sonarqube
+
+build_dapp:
+  stage: build_dapp
+  image: node:16.13.0
+  script:
+    - npm install
+    - npm run build
+    - npm install sharp
+    - mkdir dist
+    - cp -R .next dist
+    - cp -R node_modules dist
+    - cp -R public dist
+    - cp package.json dist
+    - cp next.config.js dist
+    - cp yarn.lock dist
+  artifacts:
+    paths:
+      - dist
+  tags:
+    - exec-docker
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[build\]/
+
+package_image:
+  stage: package_image
+  script:
+    - export VERSION=$(cat .docker/VERSION)
+    - docker build -f .docker/Dockerfile -t $VERSION .
+    - docker tag $VERSION $VERSION
+    - docker push $VERSION
+  tags:
+    - exec-shell
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[build\]/
+
+deploy_dev:
+  stage: deploy_dev
+  script:
+    - curl -X POST http://163.44.207.145:9000/api/webhooks/9673cf6c-5c52-4972-ab50-393d0df86636
+  tags:
+    - exec-shell
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[build\]/
+
+sonarqube:
+  stage: sonarqube
+  script:
+    - ls -la
+    - whoami
+    - sonar-scanner -Dsonar.login=$SONAR_TOKEN
+  tags:
+    - exec-shell
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /\[sonarqube\]/
